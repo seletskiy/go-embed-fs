@@ -182,6 +182,10 @@ func (e embedder) EmbedDirectory(root string) error {
 				return err
 			}
 
+			if info.IsDir() {
+				return nil
+			}
+
 			return e.EmbedFile(path, strings.TrimPrefix(path, root))
 		},
 	)
