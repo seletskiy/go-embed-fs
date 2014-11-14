@@ -1,3 +1,10 @@
+// Package embedfs provides a way to embed files and directories into
+// the binary blob, such as executable file.
+//
+// Using embedfs is possible to do such silly (and wonderful!) things like
+// embedding git repository directly into executable binary which operates on.
+//
+// For obvious reasons embedfs is read-only filesystem.
 package embedfs
 
 import (
@@ -26,7 +33,9 @@ var (
 	}
 )
 
-type embedFs struct {
+// EmbedFs represents read-only instance of embedded fs, which can be used
+// for accessing previously embedded files and directories.
+type EmbedFs struct {
 	files  []*embedFsEntry
 	index  map[string]*embedFsEntry
 	origin file
@@ -44,7 +53,7 @@ type embedFsFootprint struct {
 	Offset    int64
 }
 
-type embedder struct {
+type Embedder struct {
 	writer *tar.Writer
 	offset int64
 	origin file
@@ -67,7 +76,12 @@ type file interface {
 	Stat() (os.FileInfo, error)
 }
 
-func OpenEmbedFs(origin file) (*embedFs, error) {
+// Open will return embedfs if it's available in specified source file.
+//
+// That embedfs should first be created by method Create.
+//
+// It will accept common file as it's argument, os.File will server well.
+func Open(origin file) (*EmbedFs, error) {
 	stat, err := origin.Stat()
 	if err != nil {
 		return nil, err
@@ -92,7 +106,7 @@ func OpenEmbedFs(origin file) (*embedFs, error) {
 		return nil, ErrInvalidOffset
 	}
 
-	fs := &embedFs{
+	fs := &EmbedFs{
 		files:  []*embedFsEntry{},
 		index:  map[string]*embedFsEntry{},
 		origin: origin,
@@ -130,20 +144,30 @@ func OpenEmbedFs(origin file) (*embedFs, error) {
 	return fs, nil
 }
 
-func CreateEmbedFs(origin file) (*embedder, error) {
+// Create creates new embedfs in the end of specified file.
+//
+// It will return Embedder, which can be used for storing files and directories
+// in that embedfs.
+//
+// After all files were added, Close method should be invoked to correctly
+// finish embedfs data.
+func Create(origin file) (*Embedder, error) {
 	currentSeek, err := origin.Seek(0, os.SEEK_CUR)
 	if err != nil {
 		return nil, err
 	}
 
-	return &embedder{
+	return &Embedder{
 		writer: tar.NewWriter(origin),
 		offset: currentSeek,
 		origin: origin,
 	}, nil
 }
 
-func (e embedder) EmbedFile(path string, target string) error {
+// EmbedFile used for embedding single file to the embedded fs.
+//
+// Specified file will be added to the end of list.
+func (e Embedder) EmbedFile(path string, target string) error {
 	stat, err := os.Stat(path)
 	if err != nil {
 		return err
@@ -175,7 +199,10 @@ func (e embedder) EmbedFile(path string, target string) error {
 	return nil
 }
 
-func (e embedder) EmbedDirectory(root string) error {
+// EmbedDirectory used for embedding entire directory to the embedded fs.
+//
+// It's simple wrapper under filepath.Walk and EmbedFile.
+func (e Embedder) EmbedDirectory(root string) error {
 	return filepath.Walk(root,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -191,7 +218,10 @@ func (e embedder) EmbedDirectory(root string) error {
 	)
 }
 
-func (e embedder) Close() error {
+// Close stops embedding process and write end marker to the container file.
+//
+// After this invokation embedded fs are no longer write-capable.
+func (e Embedder) Close() error {
 	err := e.writer.Close()
 	if err != nil {
 		return err
@@ -213,7 +243,8 @@ func (e embedder) Close() error {
 	return nil
 }
 
-func (fs *embedFs) Open(path string) (file, error) {
+// Open opens specified file from embedded fs for reading only.
+func (fs *EmbedFs) Open(path string) (file, error) {
 	if !fs.IsFileExist(path) {
 		return nil, ErrNoExist
 	}
@@ -226,32 +257,38 @@ func (fs *embedFs) Open(path string) (file, error) {
 	}, nil
 }
 
-func (fs embedFs) ListDir(path string) ([]string, error) {
+func (fs EmbedFs) ListDir(path string) ([]string, error) {
 	// @TODO
 	return nil, ErrNotImplemented
 }
 
-func (fs *embedFs) IsFileExist(path string) bool {
+// IsFileExist return true, if specified file exist in embedded fs.
+func (fs *EmbedFs) IsFileExist(path string) bool {
 	_, exist := fs.index[path]
 	return exist
 }
 
-func (fs *embedFs) Create(path string) (file, error) {
+// Create operation does not supported. For interface compatibility only.
+func (fs *EmbedFs) Create(path string) (file, error) {
 	return nil, ErrNotAvail
 }
 
-func (fs embedFs) TempFile() (file, error) {
+// Create operation does not supported. For interface compatibility only.
+func (fs EmbedFs) TempFile() (file, error) {
 	return nil, ErrNotAvail
 }
 
-func (fs *embedFs) Move(from string, to string) error {
+// Create operation does not supported. For interface compatibility only.
+func (fs *EmbedFs) Move(from string, to string) error {
 	return ErrNotAvail
 }
 
-func (fs *embedFs) Close() error {
+// Close closes previously opened file. For interface compatibility only.
+func (fs *EmbedFs) Close() error {
 	return fs.origin.Close()
 }
 
+// Read is standard read funciton implementation from io.Reader.
 func (reader *embedFileReader) Read(b []byte) (int, error) {
 	rest := reader.length - reader.offset
 	if rest <= 0 {
@@ -269,14 +306,17 @@ func (reader *embedFileReader) Read(b []byte) (int, error) {
 	}
 }
 
+// Write operation is not supported. For interface compatibility only.
 func (reader *embedFileReader) Write(b []byte) (int, error) {
 	return 0, ErrNotAvail
 }
 
+// Name returns name of the embedded file.
 func (reader *embedFileReader) Name() string {
 	return reader.name
 }
 
+// Close closes previously opened file. For interface compatibility only.
 func (reader *embedFileReader) Close() error {
 	return reader.source.Close()
 }

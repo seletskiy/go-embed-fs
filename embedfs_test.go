@@ -11,7 +11,7 @@ import (
 func TestCanCreateEmptyFs(t *testing.T) {
 	container := mockfile.New("la")
 
-	embedder, err := CreateEmbedFs(container)
+	embedder, err := Create(container)
 	if err != nil {
 		panic(err)
 	}
@@ -21,7 +21,7 @@ func TestCanCreateEmptyFs(t *testing.T) {
 		panic(err)
 	}
 
-	_, err = OpenEmbedFs(container)
+	_, err = Open(container)
 	if err != nil {
 		panic(err)
 	}
@@ -30,7 +30,7 @@ func TestCanCreateEmptyFs(t *testing.T) {
 func TestCanEmbedSingleFile(t *testing.T) {
 	container := mockfile.New("lala")
 
-	embedder, err := CreateEmbedFs(container)
+	embedder, err := Create(container)
 
 	err = embedder.EmbedFile("embedfs.go", "embedfs.go")
 	if err != nil {
@@ -42,7 +42,7 @@ func TestCanEmbedSingleFile(t *testing.T) {
 		panic(err)
 	}
 
-	fs, err := OpenEmbedFs(container)
+	fs, err := Open(container)
 	if err != nil {
 		panic(err)
 	}
@@ -55,7 +55,7 @@ func TestCanEmbedSingleFile(t *testing.T) {
 func TestCanEmbedDirectory(t *testing.T) {
 	container := mockfile.New("lala3")
 
-	embedder, err := CreateEmbedFs(container)
+	embedder, err := Create(container)
 	if err != nil {
 		panic(err)
 	}
@@ -70,7 +70,7 @@ func TestCanEmbedDirectory(t *testing.T) {
 		panic(err)
 	}
 
-	fs, err := OpenEmbedFs(container)
+	fs, err := Open(container)
 	if err != nil {
 		panic(err)
 	}
@@ -87,7 +87,7 @@ func TestCanEmbedDirectory(t *testing.T) {
 func TestCanReadFile(t *testing.T) {
 	container := mockfile.New("lala3")
 
-	embedder, err := CreateEmbedFs(container)
+	embedder, err := Create(container)
 	if err != nil {
 		panic(err)
 	}
@@ -102,7 +102,7 @@ func TestCanReadFile(t *testing.T) {
 		panic(err)
 	}
 
-	fs, err := OpenEmbedFs(container)
+	fs, err := Open(container)
 	if err != nil {
 		panic(err)
 	}
