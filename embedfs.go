@@ -145,6 +145,8 @@ func Open(origin file) (*EmbedFs, error) {
 	return fs, nil
 }
 
+// Truncate erases all embedfs data from the specified file, leaving it
+// in the state it was before embedding has been done.
 func Truncate(origin file) error {
 	fs, err := Open(origin)
 	if err != nil {
@@ -335,18 +337,22 @@ func (reader *embedFileReader) Close() error {
 	return reader.source.Close()
 }
 
+// ReadAt operation is not implemeted yet.
 func (reader *embedFileReader) ReadAt(p []byte, off int64) (int, error) {
 	return 0, ErrNotImplemented
 }
 
+// Seek operation is not implemeted yet.
 func (reader *embedFileReader) Seek(offset int64, whence int) (int64, error) {
 	return 0, ErrNotImplemented
 }
 
+// Stat operation is not implemeted yet.
 func (reader *embedFileReader) Stat() (os.FileInfo, error) {
 	return nil, ErrNotImplemented
 }
 
+// Truncate operation is not supported. For interface compatibility only.
 func (reader *embedFileReader) Truncate(int64) error {
-	return ErrNotImplemented
+	return ErrNotAvail
 }
