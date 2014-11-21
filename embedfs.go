@@ -74,6 +74,7 @@ type file interface {
 	io.ReaderAt
 	io.Seeker
 	Stat() (os.FileInfo, error)
+	Truncate(size int64) error
 }
 
 // Open will return embedfs if it's available in specified source file.
@@ -144,6 +145,15 @@ func Open(origin file) (*EmbedFs, error) {
 	return fs, nil
 }
 
+func Truncate(origin file) error {
+	fs, err := Open(origin)
+	if err != nil {
+		return err
+	}
+
+	return origin.Truncate(fs.offset)
+}
+
 // Create creates new embedfs in the end of specified file.
 //
 // It will return Embedder, which can be used for storing files and directories
@@ -178,7 +188,7 @@ func (e Embedder) EmbedFile(path string, target string) error {
 		return err
 	}
 
-	tarHeader.Name = target
+	tarHeader.Name = filepath.Join("/", target)
 	e.writer.WriteHeader(tarHeader)
 	if err != nil {
 		return err
@@ -202,7 +212,7 @@ func (e Embedder) EmbedFile(path string, target string) error {
 // EmbedDirectory used for embedding entire directory to the embedded fs.
 //
 // It's simple wrapper under filepath.Walk and EmbedFile.
-func (e Embedder) EmbedDirectory(root string) error {
+func (e Embedder) EmbedDirectory(root, prefix string) error {
 	return filepath.Walk(root,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -213,7 +223,8 @@ func (e Embedder) EmbedDirectory(root string) error {
 				return nil
 			}
 
-			return e.EmbedFile(path, strings.TrimPrefix(path, root))
+			return e.EmbedFile(path,
+				filepath.Join(prefix, strings.TrimPrefix(path, root)))
 		},
 	)
 }
@@ -227,24 +238,18 @@ func (e Embedder) Close() error {
 		return err
 	}
 
-	_, err = e.origin.Write(signature[:])
-	if err != nil {
-		return err
-	}
+	err = binary.Write(e.origin, binary.BigEndian, embedFsFootprint{
+		signature,
+		e.offset,
+	})
 
-	offsetBuf := make([]byte, binary.Size(e.offset))
-	binary.PutVarint(offsetBuf, e.offset)
-
-	_, err = e.origin.Write(offsetBuf)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // Open opens specified file from embedded fs for reading only.
 func (fs *EmbedFs) Open(path string) (file, error) {
+	path = filepath.Join("/", path)
+
 	if !fs.IsFileExist(path) {
 		return nil, ErrNoExist
 	}
@@ -257,9 +262,18 @@ func (fs *EmbedFs) Open(path string) (file, error) {
 	}, nil
 }
 
+// ListDir return list of files in embedded fs in the order they was added.
 func (fs EmbedFs) ListDir(path string) ([]string, error) {
-	// @TODO
-	return nil, ErrNotImplemented
+	result := []string{}
+
+	for _, entry := range fs.files {
+		rootName := filepath.Join("/", entry.name)
+		if strings.HasPrefix(rootName, filepath.Join(path, "/")) {
+			result = append(result, entry.name)
+		}
+	}
+
+	return result, nil
 }
 
 // IsFileExist return true, if specified file exist in embedded fs.
@@ -331,4 +345,8 @@ func (reader *embedFileReader) Seek(offset int64, whence int) (int64, error) {
 
 func (reader *embedFileReader) Stat() (os.FileInfo, error) {
 	return nil, ErrNotImplemented
+}
+
+func (reader *embedFileReader) Truncate(int64) error {
+	return ErrNotImplemented
 }

@@ -47,8 +47,8 @@ func TestCanEmbedSingleFile(t *testing.T) {
 		panic(err)
 	}
 
-	if !fs.IsFileExist("embedfs.go") {
-		t.Fatal("file <embedfs.go> is not exist in embedfs")
+	if !fs.IsFileExist("/embedfs.go") {
+		t.Fatal("file </embedfs.go> is not exist in embedfs")
 	}
 }
 
@@ -60,7 +60,7 @@ func TestCanEmbedDirectory(t *testing.T) {
 		panic(err)
 	}
 
-	err = embedder.EmbedDirectory(".")
+	err = embedder.EmbedDirectory("_test", "/")
 	if err != nil {
 		panic(err)
 	}
@@ -75,12 +75,19 @@ func TestCanEmbedDirectory(t *testing.T) {
 		panic(err)
 	}
 
-	if !fs.IsFileExist("embedfs.go") {
-		t.Fatal("file <embedfs.go> is not exist in embedfs")
+	if !fs.IsFileExist("/a/1") {
+		t.Fatal("file </a/1> is not exist in embedfs")
 	}
 
-	if !fs.IsFileExist("embedfs_test.go") {
-		t.Fatal("file <embedfs_test.go> is not exist in embedfs")
+	if !fs.IsFileExist("/b/2") {
+		t.Fatal("file </b/2> is not exist in embedfs")
+	}
+
+	actual, _ := fs.ListDir("/")
+
+	expected := []string{"/a/1", "/b/2"}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatal("file from embedfs is not equal to actual file")
 	}
 }
 
@@ -112,7 +119,7 @@ func TestCanReadFile(t *testing.T) {
 		panic(err)
 	}
 
-	f, err := fs.Open("embedfs.go")
+	f, err := fs.Open("/embedfs.go")
 	if err != nil {
 		panic(err)
 	}
